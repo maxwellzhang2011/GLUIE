@@ -3,7 +3,7 @@ name = "gluie"
 version = "0.0.1-alpha"
 edition = "2024"
 description = "A 2d graphics library for application development (GPU-accelerated)"
-license-file = "MIT"
+license = "MIT"
 
 authors = ["noobedy"]
 repository = "https://github.com/maxwellzhang2011/GLUIE.git"
