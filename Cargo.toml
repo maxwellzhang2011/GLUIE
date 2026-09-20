@@ -7,7 +7,7 @@ license = "MIT"
 
 authors = ["noobedy"]
 repository = "https://github.com/maxwellzhang2011/GLUIE.git"
-keywords = ["graphics", "opengl", "glfw", "application interface"]
+keywords = ["graphics", "opengl", "glfw"]
 categories = ["graphics"]
 
 [dependencies]
