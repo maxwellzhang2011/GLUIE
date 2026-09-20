@@ -1,0 +1,15 @@
+[package]
+name = "gluie"
+version = "0.0.1-alpha"
+edition = "2024"
+description = "A 2d graphics library for application development (GPU-accelerated)"
+license-file = "MIT"
+
+authors = ["noobedy"]
+repository = "https://github.com/maxwellzhang2011/GLUIE.git"
+keywords = ["graphics", "opengl", "glfw", "application interface"]
+categories = ["graphics"]
+
+[dependencies]
+gl = "0.14.0"
+glfw = "0.62.0"
