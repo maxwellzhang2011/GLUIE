@@ -1,6 +1,6 @@
 [package]
 name = "gluie"
-version = "0.0.1-alpha"
+version = "0.0.2-alpha"
 edition = "2024"
 description = "A 2d graphics library for application development (GPU-accelerated)"
 license = "MIT"
