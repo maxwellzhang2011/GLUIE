@@ -1,5 +1,13 @@
 use glfw::{Context, Action, MouseButton};
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
+
+mod shader;
+use shader as sdr;
+
+mod objects;
+use objects as obj;
+
+use std::fs;
 
 type KeyBoard = glfw::Key;
 
@@ -8,6 +16,12 @@ pub struct Gluie{
     pub events: glfw::GlfwReceiver<(f64, glfw::WindowEvent)>,
     pub glfw_init: glfw::Glfw,
     event_buffer: Vec<glfw::WindowEvent>,
+
+    //shaders
+    pub shape_shader: Option<u32>,
+
+    //shapes
+    pub recs: HashMap<String, obj::Rec>,
 }
 
 impl Gluie{
@@ -21,7 +35,7 @@ impl Gluie{
             window.get_proc_address(symbol).map_or(std::ptr::null(), |p| p as *const _)
         });
 
-        Gluie {window: window, events: events, event_buffer: Vec::new(), glfw_init: glfw_init}
+        Gluie {window: window, events: events, event_buffer: Vec::new(), glfw_init: glfw_init, shape_shader: None, recs: HashMap::new()}
     }
 
     ///undate screen
@@ -42,7 +56,7 @@ impl Gluie{
     ///if the exit button is clicked
     pub fn click_exit(&self) -> bool{
         for event in &self.event_buffer{
-            match event{
+           match event{
                 glfw::WindowEvent::Close => return true,
                 _ => {},
             }
@@ -107,7 +121,7 @@ impl Gluie{
                 glfw::WindowEvent::Scroll(xoff, yoff) =>{
                     *x = *xoff as f32;
                     *y = *yoff as f32;
-                    return;
+                    return
                 }
                 _ => {}
             }
@@ -116,6 +130,7 @@ impl Gluie{
         *y = 0.0;
     }
 
+    ///get keyboard input
     pub fn key(&self, keys: &mut Vec<KeyBoard>){
         let mut keys_prestore: HashSet<KeyBoard> = keys.iter().copied().collect();
         keys.clear();
@@ -132,4 +147,88 @@ impl Gluie{
             keys.push(*key);
         });
     }
+
+    ///update viewport (used for resizing)
+    pub fn update_view(&mut self){
+        let (x, y) = self.window_size();
+        unsafe{ gl::Viewport(0, 0, x as i32, y as i32) };
+    }
+
+    //shader and actual gpu things :D
+    
+    ///loading shader for drawing shape
+    /// `shader is writen by taking the vertex at location(layout=0) as vec2 and location(layout=1) for color as vec3`
+    /// loads the shader for shapes return a None of success String if error
+    pub fn link_shape(&mut self, vertex: &str, fragment: &str) -> Option<String>{
+        //vertex shader loading
+        let vertex_source = match fs::read_to_string(vertex){
+            Ok(data) => data,
+            Err(e) => return Some(e.to_string()),
+        };
+
+        let vertex_shader = match sdr::compile_shader(&vertex_source, sdr::ShaderType::Vertex){
+            Ok(shader) => shader,
+            Err(e) => return Some(e.to_string()),
+        };
+
+        //fragment shader loading
+        let fragment_source = match fs::read_to_string(fragment){
+            Ok(data) => data,
+            Err(e) => return Some(e.to_string()),
+        };
+
+        let fragment_shader = match sdr::compile_shader(&fragment_source, sdr::ShaderType::Fragment){
+            Ok(shader) => shader,
+            Err(e) => return Some(e.to_string()),
+        };
+
+        self.shape_shader = Some(match sdr::link_shader(vertex_shader, fragment_shader){
+            Ok(program) => program,
+            Err(e) => return Some(e.to_string())
+        });
+        
+        unsafe{
+            gl::DeleteShader(fragment_shader);
+            gl::DeleteShader(vertex_shader);
+        }
+
+        None
+    }
+
+    //creating shapes that i can draw
+    ///create the rec shape
+    pub fn build_rec(&mut self, w: usize, h: usize, x: usize, y: usize, r: u8, g: u8, b: u8, name: &str){
+        let mut rec = obj::Rec::new(w, h, x, y, r, g, b);
+        rec.create_struct(self.window_size());
+        self.recs.insert(name.to_string(), rec);
+    }
+
+    //drawing shapes
+    ///drawing rec shape
+    pub fn draw_rec(&self, name: &str){
+        if 
+            match self.recs.get(name){
+                Some(data) => data,
+                None => return,
+            }.vao == 0
+            &&
+            match self.recs.get(name){
+                Some(data) => data,
+                None => return,
+            }.vbo == 0
+            &&
+            match self.shape_shader{
+                Some(_) => true,
+                None => false,
+            }{
+            return;
+        }
+
+        unsafe{
+            gl::UseProgram(self.shape_shader.unwrap());
+            gl::BindVertexArray(self.recs.get(name).unwrap().vao);
+            gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
+        }
+    }
+    
 }
