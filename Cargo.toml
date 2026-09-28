@@ -4,7 +4,7 @@ version = "0.0.3-alpha"
 edition = "2024"
 description = "A 2d graphics library for application development (GPU-accelerated)"
 license = "MIT"
-
+documentation = "https://docs.rs/gluie"
 authors = ["noobedy"]
 repository = "https://github.com/maxwellzhang2011/GLUIE.git"
 keywords = ["graphics", "opengl", "glfw"]
