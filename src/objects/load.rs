@@ -1,9 +1,9 @@
-pub fn load(structure: &Vec<(usize, usize)>, window_size: (usize, usize), r: u8, g: u8, b: u8) -> (u32, u32){
+pub fn load(structure: &Vec<(usize, usize)>, r: u8, g: u8, b: u8) -> (u32, u32){
     //restructure it
     let vert: Vec<f32> = structure.iter().flat_map(|(x, y)| 
         [
-            (*x as f32) / (window_size.0 as f32) * 2.0 - 1.0, 
-            -((*y as f32) / (window_size.1 as f32) * 2.0 - 1.0),
+            *x as f32, 
+            -(*y as f32),
             (r as f32) / 255f32,
             (g as f32) / 255f32,
             (b as f32) / 255f32,

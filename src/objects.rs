@@ -15,13 +15,13 @@ impl Rec{
         Rec {mw: w, mh: h, mx: x, my: y, structure: Vec::new(), mr: r, mg: g, mb: b, vao: 0, vbo: 0}
     }
 
-    pub fn create_struct(&mut self, window_size: (usize, usize)){
+    pub fn create_struct(&mut self){
         self.structure.clear();
         self.structure.push((self.mx, self.my));
         self.structure.push((self.mx+self.mw, self.my));
         self.structure.push((self.mx, self.my+self.mh));
         self.structure.push((self.mx+self.mw, self.my+self.mh));
 
-        (self.vao, self.vbo) = ld::load(&self.structure, window_size, self.mr, self.mg, self.mb);
+        (self.vao, self.vbo) = ld::load(&self.structure, self.mr, self.mg, self.mb);
     }
 }

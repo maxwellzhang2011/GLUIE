@@ -22,6 +22,8 @@ pub struct Gluie{
 
     //shapes
     pub recs: HashMap<String, obj::Rec>,
+
+    pub uniform_window_size: i32
 }
 
 impl Gluie{
@@ -35,7 +37,7 @@ impl Gluie{
             window.get_proc_address(symbol).map_or(std::ptr::null(), |p| p as *const _)
         });
 
-        Gluie {window: window, events: events, event_buffer: Vec::new(), glfw_init: glfw_init, shape_shader: None, recs: HashMap::new()}
+        Gluie {window: window, events: events, event_buffer: Vec::new(), glfw_init: glfw_init, shape_shader: None, recs: HashMap::new(), uniform_window_size: 0}
     }
 
     ///undate screen
@@ -152,6 +154,12 @@ impl Gluie{
     pub fn update_view(&mut self){
         let (x, y) = self.window_size();
         unsafe{ gl::Viewport(0, 0, x as i32, y as i32) };
+
+        unsafe{ gl::Uniform2f(
+            self.uniform_window_size,
+            x as f32,
+            y as f32
+        )};
     }
 
     //shader and actual gpu things :D
@@ -192,6 +200,13 @@ impl Gluie{
             gl::DeleteShader(vertex_shader);
         }
 
+        self.uniform_window_size = unsafe {
+            gl::GetUniformLocation(
+                self.shape_shader.unwrap(),
+                c"winsize".as_ptr(),
+            )
+       };
+
         None
     }
 
@@ -199,7 +214,7 @@ impl Gluie{
     ///create the rec shape
     pub fn build_rec(&mut self, w: usize, h: usize, x: usize, y: usize, r: u8, g: u8, b: u8, name: &str){
         let mut rec = obj::Rec::new(w, h, x, y, r, g, b);
-        rec.create_struct(self.window_size());
+        rec.create_struct();
         self.recs.insert(name.to_string(), rec);
     }
 
