@@ -179,8 +179,6 @@ impl Gluie{
 
     //shader and actual gpu things :D
     
-    ///loading shader for drawing shape
-    /// `shader is writen by taking the vertex at location(layout=0) as vec2 and location(layout=1) for color as vec3`
     /// loads the shader for shapes return a None of success String if error
     pub fn link_shape(&mut self, vertex: &str, fragment: &str) -> Option<String>{
         //vertex shader loading
@@ -294,4 +292,54 @@ impl Gluie{
         }
         false
     }
+}
+
+///generate the basic vertex shader GLUIE need
+///```
+///use std::fs;
+///
+///fn main(){
+///    fs::write("vertex.glsl", gluie::basic_vertex()).unwrap();
+///}
+///```
+pub fn basic_vertex() -> String{
+    "
+#version 330 core
+
+layout(location = 0) in uvec2 cord;
+uniform uvec3 color;
+
+uniform vec2 winsize;
+
+out vec3 aColor;
+
+void main(){
+    vec2 pos = cord / winsize;
+    pos.y = 1 - pos.y;
+
+    gl_Position = vec4(pos * vec2(2, 2) - vec2(1, 1), 0, 1);
+    aColor = color / vec3(255, 255, 255);
+}
+    ".to_string()
+
+}
+
+///Generates the basic fragment shader GLUIE need
+///```
+///use std::fs;
+///
+///fn main(){
+///    fs::write("fragment.glsl", gluie::basic_fragment()).unwrap();
+///}
+///```
+pub fn basic_fragment() -> String{
+    "
+#version 330 core
+
+in vec3 aColor;
+out vec4 color;
+void main(){
+    color = vec4(aColor, 1);
+}
+    ".to_string()
 }
