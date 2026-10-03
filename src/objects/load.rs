@@ -1,14 +1,5 @@
-pub fn load(structure: &Vec<(usize, usize)>, r: u8, g: u8, b: u8) -> (u32, u32){
-    //restructure it
-    let vert: Vec<f32> = structure.iter().flat_map(|(x, y)| 
-        [
-            *x as f32, 
-            -(*y as f32),
-            (r as f32) / 255f32,
-            (g as f32) / 255f32,
-            (b as f32) / 255f32,
-        ]).collect();
-    
+//load any object into the gpu
+pub fn load(structure: &Vec<(u32, u32)>) -> (u32, u32){
     //2 buffers
     let mut vbo = 0;
     let mut vao = 0;
@@ -24,38 +15,39 @@ pub fn load(structure: &Vec<(usize, usize)>, r: u8, g: u8, b: u8) -> (u32, u32){
 
         gl::BufferData(
             gl::ARRAY_BUFFER,
-            (vert.len() * size_of::<f32>()) as isize,
-            vert.as_ptr() as *const _,
-            gl::STATIC_DRAW,
+            (structure.len() * 2 * size_of::<u32>()) as isize,
+            structure.as_ptr() as *const _,
+            gl::DYNAMIC_DRAW,
         );
         
         //bind vao
         gl::BindVertexArray(vao);
         
         //shape
-        gl::VertexAttribPointer(
+        gl::VertexAttribIPointer(
             0,
             2,
-            gl::FLOAT,
-            gl::FALSE,
-            5 * size_of::<f32>() as i32,
+            gl::UNSIGNED_INT,
+            size_of::<u32>() as i32 * 2,
             std::ptr::null(),
         );
 
         gl::EnableVertexAttribArray(0);
-        
-        //color
-        gl::VertexAttribPointer(
-            1,
-            3,
-            gl::FLOAT,
-            gl::FALSE,
-            5 * size_of::<f32>() as i32,
-            (2*size_of::<f32>()) as *const _,
-        );
-
-        gl::EnableVertexAttribArray(1);
     }
 
     (vbo, vao)
+}
+
+//change any object in the gpu
+pub fn change(structure: &Vec<(u32, u32)>, vbo: &mut u32){
+    unsafe{
+        //vbo update
+        gl::BindBuffer(gl::ARRAY_BUFFER, *vbo);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (structure.len() * 2 * size_of::<u32>()) as isize,
+            structure.as_ptr() as *const _,
+            gl::DYNAMIC_DRAW,
+        );
+    }
 }

@@ -1,11 +1,13 @@
 use glfw::{Context, Action, MouseButton};
-use std::collections::{HashSet, HashMap};
+use std::collections::HashSet;
 
 mod shader;
 use shader as sdr;
 
 mod objects;
 use objects as obj;
+
+pub type Rec = obj::Rec;
 
 use std::fs;
 
@@ -20,10 +22,9 @@ pub struct Gluie{
     //shaders
     pub shape_shader: Option<u32>,
 
-    //shapes
-    pub recs: HashMap<String, obj::Rec>,
-
-    pub uniform_window_size: i32
+    //shapes_recs
+    pub rec_uniform_window_size: i32,
+    pub rec_uniform_color: i32
 }
 
 impl Gluie{
@@ -32,12 +33,13 @@ impl Gluie{
         let mut glfw_init = glfw::init(glfw::fail_on_errors).unwrap();
         let (mut window, events) = glfw_init.create_window(size.0, size.1, name, glfw::WindowMode::Windowed).unwrap();
         window.make_current();
+        glfw_init.set_swap_interval(glfw::SwapInterval::None);
         window.set_key_polling(true);
         gl::load_with(|symbol| {
             window.get_proc_address(symbol).map_or(std::ptr::null(), |p| p as *const _)
         });
 
-        Gluie {window: window, events: events, event_buffer: Vec::new(), glfw_init: glfw_init, shape_shader: None, recs: HashMap::new(), uniform_window_size: 0}
+        Gluie {window: window, events: events, event_buffer: Vec::new(), glfw_init: glfw_init, shape_shader: None, rec_uniform_window_size: 0, rec_uniform_color: 0}
     }
 
     ///undate screen
@@ -66,6 +68,17 @@ impl Gluie{
         false
     }
 
+    ///check if window size changed
+    fn resized(&self) -> bool{
+        for event in &self.event_buffer{
+            match event{
+                glfw::WindowEvent::Size(_, _) => return false,
+                _ => {}
+            }
+        }
+        true
+    }
+
     ///flush events so we can get window input
     pub fn flush_event(&mut self){
         self.event_buffer.clear();
@@ -84,9 +97,9 @@ impl Gluie{
     }
     
     ///return window's size
-    pub fn window_size(&self) -> (usize, usize){
+    pub fn window_size(&self) -> (u32, u32){
         let (x, y) = self.window.get_size();
-        (x as usize, y as usize)
+        (x as u32, y as u32)
     }
     
     ///set window's size into an other size
@@ -95,22 +108,22 @@ impl Gluie{
     }
     
     ///get mouse's pos
-    pub fn mouse_cord(&self) -> (usize, usize){
+    pub fn mouse_cord(&self) -> (u32, u32){
         let (x, y) = self.window.get_cursor_pos();
-        (x as usize, y as usize)
+        (x as u32, y as u32)
     }
 
     ///check if a button is pressed support up to 1-8 buttons
     pub fn mouse_button(&self, button: u8) -> bool{
         let button = match button{
             1 => MouseButton::Button1,
-            2 => MouseButton::Button1,
-            3 => MouseButton::Button1,
-            4 => MouseButton::Button1,
-            5 => MouseButton::Button1,
-            6 => MouseButton::Button1,
-            7 => MouseButton::Button1,
-            8 => MouseButton::Button1,
+            2 => MouseButton::Button2,
+            3 => MouseButton::Button3,
+            4 => MouseButton::Button4,
+            5 => MouseButton::Button5,
+            6 => MouseButton::Button6,
+            7 => MouseButton::Button7,
+            8 => MouseButton::Button8,
             _ => return false
         };
         self.window.get_mouse_button(button) == Action::Press
@@ -152,14 +165,16 @@ impl Gluie{
 
     ///update viewport (used for resizing)
     pub fn update_view(&mut self){
-        let (x, y) = self.window_size();
-        unsafe{ gl::Viewport(0, 0, x as i32, y as i32) };
+        if self.resized(){
+            let (x, y) = self.window_size();
+            unsafe{ gl::Viewport(0, 0, x as i32, y as i32) };
 
-        unsafe{ gl::Uniform2f(
-            self.uniform_window_size,
-            x as f32,
-            y as f32
-        )};
+            unsafe{ gl::Uniform2f(
+                self.rec_uniform_window_size,
+                x as f32,
+                y as f32
+            )};
+        }
     }
 
     //shader and actual gpu things :D
@@ -200,37 +215,43 @@ impl Gluie{
             gl::DeleteShader(vertex_shader);
         }
 
-        self.uniform_window_size = unsafe {
+        self.rec_uniform_window_size = unsafe {
             gl::GetUniformLocation(
-                self.shape_shader.unwrap(),
+                self.shape_shader.unwrap_unchecked(),
                 c"winsize".as_ptr(),
             )
-       };
+        };
+
+        self.rec_uniform_color = unsafe {
+            gl::GetUniformLocation(
+                self.shape_shader.unwrap_unchecked(),
+                c"color".as_ptr(),
+            )
+        };
 
         None
     }
-
-    //creating shapes that i can draw
-    ///create the rec shape
-    pub fn build_rec(&mut self, w: usize, h: usize, x: usize, y: usize, r: u8, g: u8, b: u8, name: &str){
+    
+    //rec inner control
+    ///create a rectangle object
+    pub fn build_rec(&self, w: u32, h: u32, x: u32, y: u32, r: u8, g: u8, b: u8) -> Option<Rec>{
         let mut rec = obj::Rec::new(w, h, x, y, r, g, b);
         rec.create_struct();
-        self.recs.insert(name.to_string(), rec);
+        Some(rec)
+    }
+
+    ///change how a rec is
+    pub fn change_rec(&self, w: u32, h: u32, x: u32, y: u32, r: u8, g: u8, b: u8, rec: &mut Rec){
+        rec.change(w, h, x, y, r, g, b);
     }
 
     //drawing shapes
     ///drawing rec shape
-    pub fn draw_rec(&self, name: &str){
+    pub fn draw_rec(&self, object: &Rec){
         if 
-            match self.recs.get(name){
-                Some(data) => data,
-                None => return,
-            }.vao == 0
+            object.vao == 0
             &&
-            match self.recs.get(name){
-                Some(data) => data,
-                None => return,
-            }.vbo == 0
+            object.vbo == 0
             &&
             match self.shape_shader{
                 Some(_) => true,
@@ -241,9 +262,36 @@ impl Gluie{
 
         unsafe{
             gl::UseProgram(self.shape_shader.unwrap());
-            gl::BindVertexArray(self.recs.get(name).unwrap().vao);
+
+            gl::Uniform3ui(
+                self.rec_uniform_color,
+                object.mr as u32,
+                object.mg as u32,
+                object.mb as u32
+            );
+
+            gl::BindVertexArray(object.vao);
             gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
         }
     }
     
+    //io with rec
+    ///mouse hover rec
+    pub fn mouse_hover_rec(&self, rec: &Rec) -> bool{
+        let (x, y) = self.mouse_cord();
+        if rec.mx <= x && rec.mx+rec.mw >=x &&
+           rec.my <= y && rec.my+rec.mh >= y{
+            return true;
+        }
+        false
+    }
+
+    ///mouse click on rec with any button
+    pub fn mouse_click_rec(&self, rec: &Rec, button: u8) -> bool{
+        if self.mouse_hover_rec(rec) &&
+           self.mouse_button(button){
+            return true;
+        }
+        false
+    }
 }
