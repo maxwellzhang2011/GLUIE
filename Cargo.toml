@@ -13,3 +13,4 @@ categories = ["graphics"]
 [dependencies]
 gl = "0.14.0"
 glfw = "0.62.0"
+image = "0.25.10"

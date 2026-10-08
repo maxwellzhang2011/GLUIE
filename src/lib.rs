@@ -8,8 +8,7 @@ mod objects;
 use objects as obj;
 
 pub type Rec = obj::Rec;
-
-use std::fs;
+pub type Img = obj::Image;
 
 type KeyBoard = glfw::Key;
 
@@ -21,10 +20,15 @@ pub struct Gluie{
 
     //shaders
     pub shape_shader: Option<u32>,
+    pub image_shader: Option<u32>,
 
     //shapes_recs
     pub rec_uniform_window_size: i32,
-    pub rec_uniform_color: i32
+    pub rec_uniform_color: i32,
+
+    //image
+    pub image_uniform_window_size: i32,
+    pub image_uniform_img: i32
 }
 
 impl Gluie{
@@ -39,7 +43,21 @@ impl Gluie{
             window.get_proc_address(symbol).map_or(std::ptr::null(), |p| p as *const _)
         });
 
-        Gluie {window: window, events: events, event_buffer: Vec::new(), glfw_init: glfw_init, shape_shader: None, rec_uniform_window_size: 0, rec_uniform_color: 0}
+        Gluie {
+            window: window, 
+            events: events, 
+            event_buffer: Vec::new(), 
+            glfw_init: glfw_init, 
+            
+            shape_shader: None,
+            image_shader: None,
+            
+            rec_uniform_window_size: 0,
+            rec_uniform_color: 0,
+            
+            image_uniform_window_size: 0,
+            image_uniform_img: 0
+        }
     }
 
     ///undate screen
@@ -169,35 +187,45 @@ impl Gluie{
             let (x, y) = self.window_size();
             unsafe{ gl::Viewport(0, 0, x as i32, y as i32) };
 
-            unsafe{ gl::Uniform2f(
-                self.rec_uniform_window_size,
-                x as f32,
-                y as f32
-            )};
+            unsafe{
+                match self.shape_shader{
+                    Some(d) => {
+                        gl::UseProgram(d);
+                        gl::Uniform2f(
+                            self.rec_uniform_window_size,
+                            x as f32,
+                            y as f32
+                        );
+                    }
+                    None => {},
+                }
+
+                match self.image_shader{
+                    Some(d) => {
+                        gl::UseProgram(d);
+                        gl::Uniform2f(
+                            self.image_uniform_window_size,
+                            x as f32,
+                            y as f32,
+                        );
+                    }
+                    None => {},
+                }
+            };
         }
     }
 
-    //shader and actual gpu things :D
-    
+    //======= shader and actual gpu things :D ===========
+    /// =====================================Recs================================= 
     /// loads the shader for shapes return a None of success String if error
-    pub fn link_shape(&mut self, vertex: &str, fragment: &str) -> Option<String>{
-        //vertex shader loading
-        let vertex_source = match fs::read_to_string(vertex){
-            Ok(data) => data,
-            Err(e) => return Some(e.to_string()),
-        };
-
+    pub fn link_shape(&mut self, vertex_source: &str, fragment_source: &str) -> Option<String>{
+        //create vertex shader
         let vertex_shader = match sdr::compile_shader(&vertex_source, sdr::ShaderType::Vertex){
             Ok(shader) => shader,
             Err(e) => return Some(e.to_string()),
         };
 
-        //fragment shader loading
-        let fragment_source = match fs::read_to_string(fragment){
-            Ok(data) => data,
-            Err(e) => return Some(e.to_string()),
-        };
-
+        //create fragment shader
         let fragment_shader = match sdr::compile_shader(&fragment_source, sdr::ShaderType::Fragment){
             Ok(shader) => shader,
             Err(e) => return Some(e.to_string()),
@@ -232,10 +260,10 @@ impl Gluie{
     
     //rec inner control
     ///create a rectangle object
-    pub fn build_rec(&self, w: u32, h: u32, x: u32, y: u32, r: u8, g: u8, b: u8) -> Option<Rec>{
+    pub fn build_rec(&self, w: u32, h: u32, x: u32, y: u32, r: u8, g: u8, b: u8) -> Rec{
         let mut rec = obj::Rec::new(w, h, x, y, r, g, b);
         rec.create_struct();
-        Some(rec)
+        rec
     }
 
     ///change how a rec is
@@ -248,9 +276,9 @@ impl Gluie{
     pub fn draw_rec(&self, object: &Rec){
         if 
             object.vao == 0
-            &&
+            ||
             object.vbo == 0
-            &&
+            ||
             match self.shape_shader{
                 Some(_) => true,
                 None => false,
@@ -292,14 +320,106 @@ impl Gluie{
         }
         false
     }
+
+    /// loads the shader for shapes return a None of success String if error
+    pub fn link_img(&mut self, vertex_source: &str, fragment_source: &str) -> Option<String>{
+        //create vertex shader
+        let vertex_shader = match sdr::compile_shader(&vertex_source, sdr::ShaderType::Vertex){
+            Ok(shader) => shader,
+            Err(e) => return Some(e.to_string()),
+        };
+
+        //create fragment shader
+        let fragment_shader = match sdr::compile_shader(&fragment_source, sdr::ShaderType::Fragment){
+            Ok(shader) => shader,
+            Err(e) => return Some(e.to_string()),
+        };
+
+        self.image_shader = Some(match sdr::link_shader(vertex_shader, fragment_shader){
+            Ok(program) => program,
+            Err(e) => return Some(e.to_string())
+        });
+        
+        unsafe{
+            gl::DeleteShader(fragment_shader);
+            gl::DeleteShader(vertex_shader);
+        }
+
+        self.image_uniform_window_size = unsafe {
+            gl::GetUniformLocation(
+                self.image_shader.unwrap_unchecked(),
+                c"winsize".as_ptr(),
+            )
+        };
+
+        self.image_uniform_img = unsafe {
+            gl::GetUniformLocation(
+                self.image_shader.unwrap_unchecked(),
+                c"image".as_ptr(),
+            )
+        };
+
+        None
+    }
+
+    ///create a image object
+    pub fn build_img(&self, w: u32, h: u32, x: u32, y: u32, image: Vec<u8>, img_w: u32, img_h: u32) -> Img{
+        let mut img = Img::new(w, h, x, y, image, img_w, img_h);
+        img.create_struct();
+        img
+    }
+    
+    ///drawing rec shape
+    pub fn draw_img(&self, object: &Img){
+        if 
+            object.vao == 0
+            ||
+            object.str_vbo == 0
+            ||
+            object.uv_vbo == 0
+            ||
+            match self.image_shader{
+                Some(_) => false,
+                None => true,
+            }{
+            return;
+        }
+
+        unsafe{
+            gl::UseProgram(self.image_shader.unwrap());
+
+            gl::Uniform1i(
+                self.image_uniform_img,
+                0
+            );
+
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, object.image);
+
+            gl::BindVertexArray(object.vao);
+            gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
+        }
+    }
 }
+
+
+///load image data
+pub fn load_image(path: &str) -> Result<(Vec<u8>, u32, u32), String>{
+    let image = match image::open(path){
+        Ok(data) => data,
+        Err(err) => return Err(err.to_string()),
+    }.to_rgba8();
+    
+    Ok((image.clone().into_raw(), image.width(), image.height()))
+}
+
 
 ///generate the basic vertex shader GLUIE need
 ///```
 ///use std::fs;
 ///
 ///fn main(){
-///    fs::write("vertex.glsl", gluie::basic_vertex()).unwrap();
+///    let vertex_shader_source: String = gluie::basic_vertex().unwrap();
 ///}
 ///```
 pub fn basic_vertex() -> String{
@@ -329,7 +449,7 @@ void main(){
 ///use std::fs;
 ///
 ///fn main(){
-///    fs::write("fragment.glsl", gluie::basic_fragment()).unwrap();
+///    let fragment_shader_source: String = gluie::basic_fragment().unwrap();
 ///}
 ///```
 pub fn basic_fragment() -> String{
