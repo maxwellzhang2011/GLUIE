@@ -414,15 +414,13 @@ pub fn load_image(path: &str) -> Result<(Vec<u8>, u32, u32), String>{
 }
 
 
-///generate the basic vertex shader GLUIE need
+///generate the basic vertex shader for shape that GLUIE need
 ///```
-///use std::fs;
-///
 ///fn main(){
-///    let vertex_shader_source: String = gluie::basic_vertex().unwrap();
+///    let vertex_shader_source: String = gluie::shape_basic_vertex();
 ///}
 ///```
-pub fn basic_vertex() -> String{
+pub fn shape_basic_vertex() -> String{
     "
 #version 330 core
 
@@ -444,15 +442,13 @@ void main(){
 
 }
 
-///Generates the basic fragment shader GLUIE need
+///Generates the basic fragment shader for shape that GLUIE need
 ///```
-///use std::fs;
-///
 ///fn main(){
-///    let fragment_shader_source: String = gluie::basic_fragment().unwrap();
+///    let fragment_shader_source: String = gluie::shape_basic_fragment();
 ///}
 ///```
-pub fn basic_fragment() -> String{
+pub fn shape_basic_fragment() -> String{
     "
 #version 330 core
 
@@ -460,6 +456,54 @@ in vec3 aColor;
 out vec4 color;
 void main(){
     color = vec4(aColor, 1);
+}
+    ".to_string()
+}
+
+///Generate the basic vertex shader for image that GLUIE need
+///```
+///fn main(){
+///    let vertex_shader_source: String = gluie::image_basic_vertex();
+///}
+///```
+pub fn image_basic_vertex() -> String{
+    "
+#version 330 core
+
+layout(location = 0) in uvec2 cord;
+layout(location = 1) in uvec2 uv;
+
+uniform vec2 winsize;
+
+out vec2 aUV;
+
+void main(){
+    vec2 pos = cord / winsize;
+    pos.y = 1 - pos.y;
+
+    gl_Position = vec4(pos * vec2(2, 2) - vec2(1, 1), 0, 1);
+    aUV = vec2(uv);
+}
+    ".to_string()
+}
+
+///Generate the basic fragment shader for image that GLUIE need
+///```
+///fn main(){
+///    let fragmnet_shader_source: String = gluie::image_basic_fragment();
+///}
+///```
+pub fn image_basic_fragment() -> String{
+    "
+#version 330 core
+
+in vec2 aUV;
+
+uniform sampler2D image;
+
+out vec4 color;
+void main(){
+    color = texture(image, aUV);
 }
     ".to_string()
 }
