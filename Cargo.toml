@@ -11,6 +11,8 @@ keywords = ["graphics", "opengl", "glfw"]
 categories = ["graphics"]
 
 [dependencies]
+freetype-rs = "0.38.0"
 gl = "0.14.0"
 glfw = "0.62.0"
+harfbuzz = "0.8.0"
 image = "0.25.10"
