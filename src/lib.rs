@@ -46,17 +46,23 @@ impl Gluie {
     ///init for everything like window create and init variable and load openGL
     pub fn new(size: (u32, u32), name: &str) -> Gluie {
         let mut glfw_init = glfw::init(glfw::fail_on_errors).unwrap();
+        
         let (mut window, events) = glfw_init
             .create_window(size.0, size.1, name, glfw::WindowMode::Windowed)
             .unwrap();
+        
         window.make_current();
+
         glfw_init.set_swap_interval(glfw::SwapInterval::None);
+
         window.set_key_polling(true);
+
         gl::load_with(|symbol| {
             window
                 .get_proc_address(symbol)
                 .map_or(std::ptr::null(), |p| p as *const _)
         });
+
         unsafe {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
@@ -387,16 +393,14 @@ impl Gluie {
         h: u32,
         x: u32,
         y: u32,
-        image: Vec<u8>,
-        img_w: u32,
-        img_h: u32,
+        (image, img_w, img_h): (Vec<u8>, u32, u32)
     ) -> Img {
         let mut img = Img::new(w, h, x, y, image, img_w, img_h);
         img.create_struct();
         img
     }
 
-    ///drawing rec shape
+    ///drawing img
     pub fn draw_img(&self, object: &Img) {
         if object.vao == 0
             || object.str_vbo == 0
@@ -420,6 +424,24 @@ impl Gluie {
             gl::BindVertexArray(object.vao);
             gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
         }
+    }
+    
+    //io with image
+    ///mouse hover image
+    pub fn mouse_hover_img(&self, img: &Img) -> bool {
+        let (x, y) = self.mouse_cord();
+        if img.mx <= x && img.mx + img.mw >= x && img.my <= y && img.my + img.mh >= y {
+            return true;
+        }
+        false
+    }
+
+    ///mouse click on image with any button
+    pub fn mouse_click_img(&self, img: &Img, button: u8) -> bool {
+        if self.mouse_hover_img(img) && self.mouse_button(button) {
+            return true;
+        }
+        false
     }
 
     /// loads the shader for image return a None of success String if error
@@ -551,12 +573,15 @@ pub fn load_image(path: &str) -> Result<(Vec<u8>, u32, u32), String> {
 }
 
 ///generate the basic vertex shader for shape that GLUIE need
+///
+///#Example
+///
 ///```
 ///fn main(){
-///    let vertex_shader_source: String = gluie::shape_basic_vertex();
+///    let vertex_shader_source: &str = gluie::shape_basic_vertex();
 ///}
 ///```
-pub fn shape_basic_vertex() -> String {
+pub fn shape_basic_vertex() -> &'static str {
     "
 #version 330 core
 
@@ -575,16 +600,18 @@ void main(){
     aColor = color / vec3(255, 255, 255);
 }
     "
-    .to_string()
 }
 
 ///Generates the basic fragment shader for shape that GLUIE need
+///
+///#Example
+///
 ///```
 ///fn main(){
-///    let fragment_shader_source: String = gluie::shape_basic_fragment();
+///    let fragment_shader_source: &str = gluie::shape_basic_fragment();
 ///}
 ///```
-pub fn shape_basic_fragment() -> String {
+pub fn shape_basic_fragment() -> &'static str {
     "
 #version 330 core
 
@@ -594,16 +621,18 @@ void main(){
     color = vec4(aColor, 1);
 }
     "
-    .to_string()
 }
 
 ///Generate the basic vertex shader for image that GLUIE need
+///
+///#Example
+///
 ///```
 ///fn main(){
-///    let vertex_shader_source: String = gluie::image_basic_vertex();
+///    let vertex_shader_source: &str = gluie::image_basic_vertex();
 ///}
 ///```
-pub fn image_basic_vertex() -> String {
+pub fn image_basic_vertex() -> &'static str {
     "
 #version 330 core
 
@@ -622,16 +651,18 @@ void main(){
     aUV = vec2(uv);
 }
     "
-    .to_string()
 }
 
 ///Generate the basic fragment shader for image that GLUIE need
+///
+///#Example
+///
 ///```
 ///fn main(){
-///    let fragmnet_shader_source: String = gluie::image_basic_fragment();
+///    let fragmnet_shader_source: &str = gluie::image_basic_fragment();
 ///}
 ///```
-pub fn image_basic_fragment() -> String {
+pub fn image_basic_fragment() -> &'static str {
     "
 #version 330 core
 
@@ -644,5 +675,63 @@ void main(){
     color = texture(image, aUV);
 }
     "
-    .to_string()
+}
+
+///Generate the basic vertex shader for font that GLUIE need
+///
+///#Example
+///
+///```
+///fn main(){
+///    let vertex_shader_source: &str = gluie::font_basic_vertex();
+///}
+///```
+pub fn font_basic_vertex() -> &'static str {
+    "
+#version 330 core
+
+layout(location = 0) in uvec2 cord;
+layout(location = 1) in uvec2 uv;
+
+uniform vec2 winsize;
+
+out vec2 aUV;
+
+void main(){
+    vec2 pos = cord / winsize;
+    pos.y = 1 - pos.y;
+
+    gl_Position = vec4(pos * vec2(2, 2) - vec2(1, 1), 0, 1);
+    aUV = vec2(uv);
+}
+    "
+}
+
+///Generate the basic fragment shader for image that GLUIE need
+///
+///#Example
+///
+///```
+///fn main(){
+///    let fragmnet_shader_source: &str = gluie::font_basic_fragment();
+///}
+///```
+pub fn font_basic_fragment() -> &'static str {
+    "
+#version 330 core
+
+in vec2 aUV;
+
+uniform sampler2D image;
+uniform uvec3 color;
+
+out vec4 acolor;
+
+void main() {
+    float alpha = texture(image, aUV).r;
+    vec3 rgb = vec3(color) / 255.0;
+
+    acolor = vec4(rgb, alpha);
+}
+    "
 }
