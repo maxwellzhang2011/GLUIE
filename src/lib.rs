@@ -11,7 +11,7 @@ pub type Rec = obj::Rec;
 pub type Img = obj::Image;
 pub type Text = obj::Text;
 
-type KeyBoard = glfw::Key;
+pub type KeyBoard = glfw::Key;
 type Font = freetype::Face;
 
 pub struct Gluie {
