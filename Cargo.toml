@@ -1,8 +1,8 @@
 [package]
 name = "gluie"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
-description = "A 2d graphics library for application development (GPU-accelerated)"
+description = "A 2d easy to use graphics library for application development (GPU-accelerated)"
 license = "MIT"
 documentation = "https://docs.rs/gluie"
 authors = ["noobedy"]
