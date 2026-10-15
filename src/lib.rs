@@ -40,6 +40,9 @@ pub struct Gluie {
 
     //lib
     lib: freetype::Library,
+
+    //io
+    input: std::rc::Rc<std::cell::RefCell<String>>
 }
 
 impl Gluie {
@@ -89,6 +92,8 @@ impl Gluie {
             font_uniform_color: 0,
 
             lib: freetype::Library::init().unwrap(),
+
+            input: std::rc::Rc::new(std::cell::RefCell::new(String::new()))
         }
     }
 
@@ -201,22 +206,58 @@ impl Gluie {
         *y = 0.0;
     }
 
-    ///get keyboard input
-    pub fn key(&self, keys: &mut Vec<KeyBoard>) {
-        let mut keys_prestore: HashSet<KeyBoard> = keys.iter().copied().collect();
+    ///get keyboard input down when just click down
+    pub fn key_down(&self, keys: &mut HashSet<KeyBoard>) {
         keys.clear();
         for event in &self.event_buffer {
             if let glfw::WindowEvent::Key(key, _, glfw::Action::Press, _) = *event {
-                keys_prestore.insert(key as KeyBoard);
-            }
-
-            if let glfw::WindowEvent::Key(key, _, glfw::Action::Release, _) = *event {
-                keys_prestore.remove(&(key as KeyBoard));
+                keys.insert(key as KeyBoard);
             }
         }
-        keys_prestore.iter().for_each(|key| {
-            keys.push(*key);
+    }
+    
+    ///get keyboard input down and repeat
+    pub fn key_repeat(&self, keys: &mut HashSet<KeyBoard>) {
+        keys.clear();
+        for event in &self.event_buffer {
+            if let glfw::WindowEvent::Key(key, _, glfw::Action::Repeat, _) = *event {
+                keys.insert(key as KeyBoard);
+            }
+        }
+    }
+
+    ///get keyboard input down and floud
+    pub fn key_floud(&self, keys: &mut HashSet<KeyBoard>) {
+        for event in &self.event_buffer {
+            if let glfw::WindowEvent::Key(key, _, glfw::Action::Press, _) = *event {
+                keys.insert(key as KeyBoard);
+            }
+        }
+    }
+    
+    ///get keyboard input down and user repeat
+    pub fn key_user(&self, keys: &mut HashSet<KeyBoard>) {
+        keys.clear();
+        for event in &self.event_buffer {
+            if let glfw::WindowEvent::Key(key, _, glfw::Action::Press | glfw::Action::Repeat, _) = *event {
+                keys.insert(key as KeyBoard);
+            }
+        }
+    }
+
+    /// init keyboard input as chars
+    pub fn key_char_init(&mut self){
+        let input_clone = std::rc::Rc::clone(&self.input);
+        self.window.set_char_callback(move |_, ch|{
+            input_clone.borrow_mut().push(ch);
         });
+    }
+
+    ///get keyboard input as chars
+    pub fn key_char(&self) -> String{
+        let data = self.input.borrow().to_string();
+        self.input.borrow_mut().clear();
+        data
     }
 
     ///update viewport (used for resizing)
@@ -254,7 +295,6 @@ impl Gluie {
     }
 
     //======= shader and actual gpu things :D ===========
-    /// =====================================Recs=================================
     /// loads the shader for shapes return a None of success String if error
     pub fn link_shape(&mut self, vertex_source: &str, fragment_source: &str) -> Option<String> {
         //create vertex shader
@@ -528,7 +568,7 @@ impl Gluie {
     }
 
     ///drawing rec shape
-    pub fn draw_text(&self, object: &Text) {
+    pub fn draw_char(&self, object: &Text) {
         if object.vao == 0
             || object.str_vbo == 0
             || object.uv_vbo == 0
@@ -559,6 +599,11 @@ impl Gluie {
             gl::DrawArrays(gl::TRIANGLE_STRIP, 0, 4);
         }
     }
+
+}
+///get text size
+pub fn get_text_size(ch: &Text) -> (u32, u32){
+    (ch.maw, ch.mah)
 }
 
 ///load image data
